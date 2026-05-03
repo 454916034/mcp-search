@@ -1,4 +1,3 @@
-mcp
+fastmcp
 duckduckgo-search
-starlette
 uvicorn
