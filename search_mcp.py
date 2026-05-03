@@ -2,6 +2,7 @@ import asyncio
 import os
 import time
 import uvicorn
+import feedparser
 from fastmcp import FastMCP
 
 mcp = FastMCP("web-search")
@@ -12,7 +13,7 @@ MIN_INTERVAL = 2
 
 @mcp.tool()
 async def search_web(query: str) -> str:
-    """Search the web using DuckDuckGo. Best for general information."""
+    """Search the web for general information. NOT for news."""
     global _last_call
     now = time.time()
     if now - _last_call < MIN_INTERVAL:
@@ -32,46 +33,40 @@ async def search_web(query: str) -> str:
         results = await asyncio.to_thread(_search, query)
         if not results:
             return "No results found."
-        formatted = []
-        for r in results:
-            formatted.append(
-                f"Title: {r['title']}\nURL: {r['href']}\nSnippet: {r['body']}\n---"
-            )
-        return "\n".join(formatted)
+        return "\n".join(
+            f"Title: {r['title']}\nURL: {r['href']}\nSnippet: {r['body']}\n---"
+            for r in results
+        )
     except Exception as e:
         return f"Search error: {e}"
 
 
 @mcp.tool()
-async def search_news(query: str) -> str:
-    """Search for recent news articles. Best for current events and news."""
+async def get_chinese_news(topic: str = "今日热点") -> str:
+    """Get latest Chinese news. Use this when user asks about news, current events, what happened recently, or daily events in China. This is the BEST tool for Chinese news."""
     global _last_call
     now = time.time()
     if now - _last_call < MIN_INTERVAL:
         await asyncio.sleep(MIN_INTERVAL - (now - _last_call))
     _last_call = time.time()
 
-    from duckduckgo_search import DDGS
-
-    def _search_news(q):
-        with DDGS() as ddgs:
-            results = list(ddgs.news(q, max_results=10, region="cn-zh"))
-            if not results:
-                results = list(ddgs.news(q, max_results=10))
-            return results
+    def _fetch(t):
+        url = f"https://news.google.com/rss/search?q={t}+when:3d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+        feed = feedparser.parse(url)
+        items = []
+        for e in feed.entries[:10]:
+            source = ""
+            if hasattr(e, "source") and hasattr(e.source, "title"):
+                source = e.source.title
+            items.append(
+                f"Title: {e.get('title','')}\nSource: {source}\nURL: {e.get('link','')}\nDate: {e.get('published','')}\n---"
+            )
+        return "\n".join(items) if items else "No news found."
 
     try:
-        results = await asyncio.to_thread(_search_news, query)
-        if not results:
-            return "No news found."
-        formatted = []
-        for r in results:
-            formatted.append(
-                f"Title: {r['title']}\nSource: {r.get('source', 'N/A')}\nURL: {r['url']}\nDate: {r.get('date', 'N/A')}\nSnippet: {r.get('body', '')}\n---"
-            )
-        return "\n".join(formatted)
+        return await asyncio.to_thread(_fetch, topic)
     except Exception as e:
-        return f"News search error: {e}"
+        return f"News error: {e}"
 
 
 if __name__ == "__main__":
