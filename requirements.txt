@@ -1,4 +1,4 @@
 fastmcp
 duckduckgo-search
 uvicorn
-feedparser
+requests
