@@ -12,7 +12,7 @@ MIN_INTERVAL = 2
 
 @mcp.tool()
 async def search_web(query: str) -> str:
-    """Search the web using DuckDuckGo. Supports both Chinese and English."""
+    """Search the web using DuckDuckGo. Best for general information."""
     global _last_call
     now = time.time()
     if now - _last_call < MIN_INTERVAL:
@@ -40,6 +40,38 @@ async def search_web(query: str) -> str:
         return "\n".join(formatted)
     except Exception as e:
         return f"Search error: {e}"
+
+
+@mcp.tool()
+async def search_news(query: str) -> str:
+    """Search for recent news articles. Best for current events and news."""
+    global _last_call
+    now = time.time()
+    if now - _last_call < MIN_INTERVAL:
+        await asyncio.sleep(MIN_INTERVAL - (now - _last_call))
+    _last_call = time.time()
+
+    from duckduckgo_search import DDGS
+
+    def _search_news(q):
+        with DDGS() as ddgs:
+            results = list(ddgs.news(q, max_results=10, region="cn-zh"))
+            if not results:
+                results = list(ddgs.news(q, max_results=10))
+            return results
+
+    try:
+        results = await asyncio.to_thread(_search_news, query)
+        if not results:
+            return "No news found."
+        formatted = []
+        for r in results:
+            formatted.append(
+                f"Title: {r['title']}\nSource: {r.get('source', 'N/A')}\nURL: {r['url']}\nDate: {r.get('date', 'N/A')}\nSnippet: {r.get('body', '')}\n---"
+            )
+        return "\n".join(formatted)
+    except Exception as e:
+        return f"News search error: {e}"
 
 
 if __name__ == "__main__":
