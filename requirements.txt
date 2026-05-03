@@ -1,0 +1,4 @@
+mcp
+duckduckgo-search
+starlette
+uvicorn
